@@ -3,106 +3,371 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fallacy Trainer — No-Build</title>
+<title>Logical Fallacy Trainer — v7 (orange)</title>
 <style>
-  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f6f6f6;margin:0}
-  .wrap{max-width:900px;margin:24px auto;padding:16px}
-  .card{background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:16px}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .btn{padding:10px 14px;border-radius:12px;border:1px solid #ccc;background:#fff;cursor:pointer}
-  .btn.primary{background:#111;color:#fff;border-color:#111}
-  .opt{display:flex;gap:8px;align-items:flex-start;text-align:left;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer}
-  .opt.active{background:#eef3ff;border-color:#5b7cff}
-  .opt.correct{background:#e8fbef;border-color:#1e9e55}
-  .opt.wrong.active{background:#ffecec;border-color:#ff6b6b}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .muted{color:#666;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
-  .stat{background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:12px;text-align:center}
-  .mt{margin-top:16px}
-  .hidden{display:none}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  :root{
+    --bg:#fcfcfd;
+    --panel:#ffffff;
+    --text:#0f172a;      /* slate-900 */
+    --muted:#475569;     /* slate-600 */
+    --border:#e5e7eb;    /* gray-200 */
+    --accent:#ea580c;    /* modern orange */
+    --accent-weak:#fff3e8;
+    --good:#166534;      /* green-700 */
+    --good-weak:#e9f7ee;
+    --bad:#b91c1c;       /* red-700 */
+    --bad-weak:#fee2e2;
+    --focus:#0ea5e9;     /* cyan-500 for focus outline */
+    --clue:#fff1b3;      /* pale yellow */
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans";
+  }
+  .wrap{max-width:1000px;margin:28px auto;padding:0 16px}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:28px;height:28px;border-radius:8px;background:var(--accent);box-shadow:inset 0 -3px 0 rgba(0,0,0,.1)}
+  h1{margin:0;font-size:22px;font-weight:850;letter-spacing:.2px}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .btn,.field{font:inherit;border-radius:12px;border:1px solid var(--border);background:var(--panel);padding:10px 14px}
+  .btn{cursor:pointer;transition:transform .02s ease-in}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.primary:hover{filter:brightness(.97)}
+  .btn:hover{background:#f6f8fb}
+  .muted{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px}
+  .claim{font-size:20px;line-height:1.65;margin:8px 0 0}
+  .clue{background:var(--clue);padding:0 .22rem;border-radius:.25rem}
+  .hintline{font-size:13px;color:var(--muted);margin-top:6px}
+  .options{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+  .opt{display:flex;gap:12px;align-items:flex-start;text-align:left;border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff;cursor:pointer;outline:none}
+  .opt:focus{box-shadow:0 0 0 3px var(--focus)}
+  .opt.active{background:var(--accent-weak);border-color:#ffd6bd}
+  .opt.correct{background:var(--good-weak);border-color:var(--good)}
+  .opt.wrong.active{background:var(--bad-weak);border-color:var(--bad)}
+  .label{font-weight:800;min-width:22px}
+  .meta{font-size:12px;color:var(--muted);margin-top:6px;display:none}
+  .meta.show{display:block}
+  .actions{display:flex;gap:8px;margin-top:14px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:12px;text-align:center;padding:14px}
+  .num{font-weight:900;font-size:22px}
+  .row{display:flex;gap:8px;align-items:center}
+  .free-answer{display:flex;gap:8px;margin-top:12px}
+  .input{flex:1;border:1px solid var(--border);border-radius:10px;padding:11px 12px;font:inherit;background:#fff}
+  .input:focus{outline:3px solid var(--focus);border-color:transparent}
+  .backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:16px}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:760px;width:100%;max-height:80vh;overflow:auto;padding:18px}
+  .backdrop.open{display:flex}
+  .g-item{border-bottom:1px dashed var(--border);padding:10px 0}
+  .sep{height:1px;background:var(--border);margin:14px 0}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--border);padding:6px 10px;border-radius:999px;font-size:12px}
+  .pill .dot{width:8px;height:8px;border-radius:999px;background:var(--accent)}
+  .sr-only{position:absolute!important;height:1px;width:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="row" style="justify-content:space-between;">
-    <h2>Logical Fallacy Trainer (no-build)</h2>
-    <div class="row">
-      <label>Difficulty 
-        <select id="difficulty" class="btn">
-          <option value="easy">Easy</option>
-          <option value="medium" selected>Medium</option>
-          <option value="hard">Hard</option>
-        </select>
-      </label>
-      <label class="btn"><input type="checkbox" id="combos" checked> Allow combos</label>
-      <button id="reset" class="btn">Reset stats</button>
+  <header>
+    <div class="brand"><div class="logo" aria-hidden="true"></div><h1>Logical Fallacy Trainer</h1></div>
+    <div class="controls">
+      <label class="sr-only" for="mode">Mode</label>
+      <select id="mode" class="field" title="Mode">
+        <option value="mc">Multiple Choice</option>
+        <option value="free">Free Answer</option>
+      </select>
+      <label class="btn"><input id="combos" type="checkbox" checked> Allow combos</label>
+      <button id="glossaryBtn" class="btn">Glossary</button>
+      <button id="reviewBtn" class="btn">Review missed</button>
+      <button id="dataBtn" class="btn">Set data URL</button>
+      <button id="reset" class="btn">Reset</button>
     </div>
-  </div>
+  </header>
 
-  <div id="card" class="card mt">
-    <div class="muted" id="domainLabel">Domain:</div>
-    <p id="claim" style="font-size:18px;line-height:1.5;margin-top:8px"></p>
-    <div id="options" class="grid mt"></div>
-    <div class="row mt" id="actions">
-      <button id="submit" class="btn primary">Submit</button>
-      <button id="skip" class="btn">Skip</button>
+  <main class="card">
+    <div class="row" style="justify-content:space-between">
+      <div id="domainLabel" class="muted">Domain:</div>
+      <div class="pill" id="sourceTag" style="display:none"><span class="dot"></span>External templates</div>
     </div>
-    <div id="result" class="mt hidden">
-      <div class="row" style="justify-content:space-between;">
-        <strong>Result</strong>
-        <span id="correctLetters" class="mono"></span>
+    <p id="claim" class="claim"></p>
+    <div id="clueLegend" class="muted" style="display:none">Clues highlighted in yellow</div>
+
+    <!-- Multiple-choice panel -->
+    <section id="mcPanel" style="display:block">
+      <div id="pickHint" class="hintline"></div>
+      <section id="options" class="options" aria-label="Answer options"></section>
+      <div class="actions" id="mcActions">
+        <button id="submitMC" class="btn primary">Submit</button>
+        <button id="skip" class="btn">Skip</button>
       </div>
-      <ul id="explain" style="margin-top:8px"></ul>
-      <button id="next" class="btn primary mt">Next</button>
+    </section>
+
+    <!-- Free-answer panel -->
+    <section id="freePanel" style="display:none">
+      <div class="free-answer">
+        <input id="freeInput" class="input" placeholder="Type the fallacy (e.g., 'ad populum', 'appeal to popularity', 'bandwagon')">
+        <button id="freeSubmit" class="btn primary">Submit</button>
+        <button id="freeSkip" class="btn">Skip</button>
+      </div>
+      <div class="hintline">Accepts synonyms/aliases and close spellings. Press Enter to submit.</div>
+    </section>
+
+    <div class="sep"></div>
+
+    <section id="result" class="actions" style="display:none">
+      <strong>Result:</strong>
+      <span id="correctLetters" style="margin-left:4px"></span>
+      <span id="interpreted" class="muted" style="margin-left:8px"></span>
+      <button id="next" class="btn primary" style="margin-left:auto">Next</button>
+    </section>
+  </main>
+
+  <section class="stats">
+    <div class="stat"><div class="muted">Score</div><div id="score" class="num">0</div></div>
+    <div class="stat"><div class="muted">Streak</div><div id="streak" class="num">0</div></div>
+    <div class="stat"><div class="muted">Played</div><div id="played" class="num">0</div></div>
+  </section>
+
+  <p class="muted" style="margin-top:10px">Every 5 questions, the generator targets your two weakest fallacies.</p>
+</div>
+
+<!-- Glossary modal -->
+<div id="glossaryModal" class="backdrop" role="dialog" aria-modal="true" aria-labelledby="glTitle">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+      <h2 id="glTitle" style="margin:0;font-size:18px">Study Glossary</h2>
+      <button id="glClose" class="btn">Close</button>
     </div>
+    <input id="gsearch" class="field" placeholder="Search… (name or text)" style="width:100%;margin-top:8px">
+    <div id="glist" style="margin-top:8px"></div>
   </div>
-
-  <div class="grid mt">
-    <div class="stat"><div class="muted">Score</div><div id="score" style="font-size:22px;font-weight:700">0</div></div>
-    <div class="stat"><div class="muted">Streak</div><div id="streak" style="font-size:22px;font-weight:700">0</div></div>
-    <div class="stat"><div class="muted">Played</div><div id="played" style="font-size:22px;font-weight:700">0</div></div>
-    <div class="stat"><div class="muted">Weak spots (misses)</div><div id="weak" class="mono">—</div></div>
-  </div>
-
-  <p class="muted mt">Every 5 questions, the generator biases toward your top two weak fallacies.</p>
 </div>
 
 <script>
-const FALLACIES = ["ad hominem","straw man","false dilemma","circular reasoning","slippery slope","hasty generalization","appeal to authority","appeal to emotion","post hoc","correlation/causation","composition/division","no true Scotsman","begging the question","equivocation","gambler’s fallacy","bandwagon","red herring","loaded question","genetic fallacy","tu quoque","Texas sharpshooter","appeal to ignorance","special pleading"];
-const DOMAINS = ["news","science","politics","everyday life","ads","tech","sports","health"];
-const storeKey = "fallacy_trainer_state_nobuild_v1";
+/* ===== Data ===== */
+const FALLACIES = [
+  "ad hominem","straw man","false dilemma","circular reasoning","slippery slope","hasty generalization",
+  "appeal to authority","appeal to emotion","post hoc","correlation/causation","composition/division",
+  "no true Scotsman","begging the question","equivocation","gambler’s fallacy","bandwagon","red herring",
+  "loaded question","genetic fallacy","tu quoque","Texas sharpshooter","appeal to ignorance","special pleading",
+  "appeal to popularity","appeal to tradition","appeal to novelty","appeal to nature","middle ground",
+  "moving the goalposts","false equivalence","sunk cost","anecdotal","burden of proof"
+];
 
-let state = {
-  difficulty:"medium", combos:true, score:0, streak:0, played:0, mistakes:{}, seed:Math.floor(Math.random()*1e9),
+const DEFINITIONS = {
+  "ad hominem":"Attacking the person rather than addressing the argument.",
+  "straw man":"Misrepresenting someone’s view as extreme to refute it more easily.",
+  "false dilemma":"Presenting only two options while ignoring alternatives or hybrids.",
+  "circular reasoning":"Using the conclusion as a premise; reasoning in a loop.",
+  "slippery slope":"Claiming a small step will trigger a chain of extreme outcomes without support.",
+  "hasty generalization":"Generalizing from too small or unrepresentative a sample.",
+  "appeal to authority":"Treating status or fame as decisive evidence.",
+  "appeal to emotion":"Substituting feelings (fear, pity, pride) for relevant reasons.",
+  "post hoc":"Assuming B followed A, so A caused B (confounds ignored).",
+  "correlation/causation":"Confusing association with causation; correlation ≠ cause.",
+  "composition/division":"Illicitly transferring properties between part and whole.",
+  "no true Scotsman":"Redefining a group to exclude counterexamples.",
+  "begging the question":"Restating the conclusion as a premise; no independent support.",
+  "equivocation":"Shifting a term’s meaning mid-argument to create a false link.",
+  "gambler’s fallacy":"Assuming chance has a memory; expecting short-run balancing.",
+  "bandwagon":"Arguing something is true/good because it’s popular (ad populum).",
+  "red herring":"Diverting to an irrelevant issue to avoid the point.",
+  "loaded question":"Embedding a controversial presupposition in the question.",
+  "genetic fallacy":"Judging a claim by its source/origin instead of its merits.",
+  "tu quoque":"Rejecting an argument by pointing to the speaker’s inconsistency.",
+  "Texas sharpshooter":"Cherry-picking data clusters after the fact to suggest a pattern.",
+  "appeal to ignorance":"Treating lack of disproof as proof; shifting burden of evidence.",
+  "special pleading":"Inventing ad hoc exceptions to avoid standards of evidence.",
+  "appeal to popularity":"Arguing it’s true/good because many people believe it (ad populum).",
+  "appeal to tradition":"Claiming something is correct because it’s traditional.",
+  "appeal to novelty":"Claiming something is better because it’s new.",
+  "appeal to nature":"Claiming something is good because it’s ‘natural’.",
+  "middle ground":"Assuming the midpoint between two positions is correct.",
+  "moving the goalposts":"Changing criteria after a proof is offered.",
+  "false equivalence":"Equating two things that aren’t truly comparable.",
+  "sunk cost":"Continuing due to past investment rather than future value.",
+  "anecdotal":"Using one/few personal stories as decisive evidence.",
+  "burden of proof":"Demanding the critic disprove a claim rather than providing evidence."
 };
-try{ const saved = JSON.parse(localStorage.getItem(storeKey)); if (saved) state = {...state, ...saved}; } catch{}
 
-const $ = sel => document.querySelector(sel);
-$("#difficulty").value = state.difficulty;
-$("#combos").checked = state.combos;
-$("#score").textContent = state.score;
-$("#streak").textContent = state.streak;
-$("#played").textContent = state.played;
-renderWeak();
+// Aliases -> canonical
+const ALIASES = (()=>{
+  const map = new Map();
+  const add = (canon, arr)=>arr.forEach(a=>map.set(norm(a), canon));
+  Object.keys(DEFINITIONS).forEach(k=>map.set(norm(k), k));
+  add("bandwagon", ["ad populum","appeal to popularity","appeal to the people","popularity"]);
+  add("appeal to authority", ["argument from authority","ad verecundiam"]);
+  add("appeal to ignorance", ["argument from ignorance","ad ignorantiam"]);
+  add("appeal to emotion", ["argument from emotion","emotional appeal"]);
+  add("ad hominem", ["abusive ad hominem","ad hom","personal attack"]);
+  add("false dilemma", ["black-or-white","either-or","false binary"]);
+  add("post hoc", ["post hoc ergo propter hoc","after this therefore because of this"]);
+  add("equivocation", ["ambiguity","semantic shift"]);
+  add("Texas sharpshooter", ["cherry picking clusters","cluster illusion"]);
+  add("no true Scotsman", ["not a real X","true scotsman"]);
+  add("appeal to tradition", ["argument from tradition","status quo bias"]);
+  add("appeal to novelty", ["argument from novelty","newer is better"]);
+  add("appeal to nature", ["naturalistic fallacy","nature is good"]);
+  add("burden of proof", ["onus probandi","prove me wrong"]);
+  add("anecdotal", ["personal anecdote","testimonial evidence"]);
+  add("false equivalence", ["whataboutism equivalence","apples to oranges"]);
+  add("gambler’s fallacy", ["gambler's fallacy","law of averages"]);
+  add("tu quoque", ["whataboutism","you too"]);
+  add("moving the goalposts", ["raising the bar","shifting standards"]);
+  add("middle ground", ["golden mean","compromise is truth"]);
+  return map;
+})();
 
+const DOMAINS = ["news","science","politics","everyday life","ads","tech","sports","health"];
+
+/* ===== State ===== */
+const storeKey = "fallacy_trainer_v7";
+let state = {
+  mode:"mc", combos:true,
+  score:0, streak:0, played:0,
+  mistakes:{}, seed:Math.floor(Math.random()*1e9),
+  missed:[],
+  dataUrl:"", external:{}
+};
+try{ const saved = JSON.parse(localStorage.getItem(storeKey)); if (saved) state = {...state, ...saved, missed: saved.missed||[], external: saved.external||{}}; }catch{}
+
+const $ = s => document.querySelector(s);
+$("#mode").value = state.mode; $("#combos").checked = state.combos; $("#score").textContent = state.score; $("#streak").textContent = state.streak; $("#played").textContent = state.played;
+if (state.dataUrl) $("#sourceTag").style.display = "inline-flex";
 function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
 
+/* ===== Helpers ===== */
 function rng(seed){ let t=seed>>>0; return ()=>{ t+=0x6D2B79F5; let r=Math.imul(t^(t>>>15),1|t); r^=r+Math.imul(r^(r>>>7),61|r); return ((r^(r>>>14))>>>0)/4294967296; };}
 function pick(arr,r){ return arr[Math.floor(r()*arr.length)]; }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function norm(s){ return (s||"").toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g," ").trim(); }
 
-function genClaim({difficulty, combos, forceFallacies, seed}){
+// Levenshtein
+function editDistance(a,b){
+  a = norm(a); b = norm(b);
+  const m=a.length, n=b.length; if(!m||!n) return Math.max(m,n);
+  const dp = new Array(n+1); for(let j=0;j<=n;j++) dp[j]=j;
+  for(let i=1;i<=m;i++){
+    let prev=i-1; dp[0]=i;
+    for(let j=1;j<=n;j++){
+      const tmp = dp[j];
+      const cost = a[i-1]===b[j-1]?0:1;
+      dp[j] = Math.min(dp[j]+1, dp[j-1]+1, prev+cost);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+function resolveCanonical(input){
+  const x = norm(input);
+  if (!x) return null;
+  if (ALIASES.has(x)) return {canon: ALIASES.get(x), score: 0, via: "alias"};
+  // best fuzzy
+  let best = {canon:null, score:1e9, via:"fuzzy"};
+  const candidates = new Map();
+  Object.keys(DEFINITIONS).forEach(c=>{
+    candidates.set(norm(c), c);
+    for (const [k,v] of ALIASES.entries()) if (v===c) candidates.set(k,c);
+  });
+  for (const [phrase, canon] of candidates.entries()){
+    const d = editDistance(x, phrase);
+    if (d < best.score){ best = {canon, score:d, via:"fuzzy"}; }
+  }
+  const tol = Math.max(1, Math.floor(Math.min(x.length, 12) * 0.25));
+  return best.score <= tol ? best : null;
+}
+
+/* ===== Clues ===== */
+const CLUE_CUES = {
+  "ad hominem": ["argument is worthless"],
+  "straw man": ["secretly want","reject them outright"],
+  "false dilemma": ["no middle ground"],
+  "circular reasoning": ["because it's effective","because it works"],
+  "slippery slope": ["tomorrow","must stop it now"],
+  "hasty generalization": ["therefore all"],
+  "appeal to authority": ["must be true"],
+  "appeal to emotion": ["if you cared","without asking questions"],
+  "post hoc": ["after","caused it"],
+  "correlation/causation": ["correlates with","therefore"],
+  "composition/division": ["each","so the whole"],
+  "no true Scotsman": ["no real","isn't a true"],
+  "begging the question": ["is justified because it's the right thing"],
+  "equivocation": ["means","we can conclude"],
+  "gambler’s fallacy": ["in a row","due to flip"],
+  "bandwagon": ["million people","winning side"],
+  "red herring": ["have you seen","talk about that instead"],
+  "loaded question": ["have you stopped"],
+  "genetic fallacy": ["originated on","by default"],
+  "tu quoque": ["so your argument","is invalid"],
+  "Texas sharpshooter": ["prove it works—ignore the rest"],
+  "appeal to ignorance": ["no one has disproven","therefore it's true"],
+  "special pleading": ["shouldn't be judged","exception"],
+  "appeal to popularity": ["everyone believes"],
+  "appeal to tradition": ["we've always"],
+  "appeal to novelty": ["the latest"],
+  "appeal to nature": ["natural"],
+  "middle ground": ["compromise"],
+  "moving the goalposts": ["not enough"],
+  "false equivalence": ["equally"],
+  "sunk cost": ["already invested"],
+  "anecdotal": ["my friend"],
+  "burden of proof": ["prove me wrong"]
+};
+function addClueHighlights(text, fallacies){
+  let html = text, count = 0;
+  for(const f of fallacies){
+    const cues = CLUE_CUES[f] || [];
+    for(const cue of cues){
+      if(count>=2) break;
+      const safe = cue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp(safe, "i");
+      if(re.test(html)){ html = html.replace(re, m=>`<span class="clue">${m}</span>`); count++; }
+    }
+    if(count>=2) break;
+  }
+  return html;
+}
+
+/* ===== External data support ===== */
+async function setDataUrl(){
+  const url = prompt("Enter a JSON URL for extra templates (CORS-enabled). Example: https://raw.githubusercontent.com/<user>/<repo>/main/fallacies.json", state.dataUrl||"");
+  if(!url) return;
+  try{
+    const res = await fetch(url, {mode:"cors"});
+    const json = await res.json();
+    if (typeof json !== "object") throw new Error("Bad JSON");
+    state.dataUrl = url; state.external = json; save();
+    $("#sourceTag").style.display = "inline-flex";
+    alert("Loaded external templates. They’ll be mixed into future questions.");
+  }catch(e){
+    alert("Could not load that URL. Make sure it returns JSON and allows CORS.");
+  }
+}
+
+/* ===== Generator ===== */
+function genClaim({combos, forceFallacies, seed}){
   const r = rng(seed);
   const d = pick(DOMAINS, r);
   let targets = (forceFallacies && forceFallacies.length) ? [...forceFallacies] : [pick(FALLACIES, r)];
-  if (combos && difficulty!=="easy" && Math.random()<0.32 && (!forceFallacies || forceFallacies.length<2)) {
+  if (combos && Math.random()<0.32 && (!forceFallacies || forceFallacies.length<2)) {
     let other = pick(FALLACIES.filter(f=>f!==targets[0]), r); targets.push(other);
   }
   if (forceFallacies && forceFallacies.length===2) targets = [...forceFallacies];
 
+  const labelMap = {news:"report",science:"paper",politics:"proposal","everyday life":"advice",ads:"campaign",tech:"benchmark",sports:"strategy",health:"trial"};
+  function thing(){ return labelMap[d] || "claim"; }
+
+  function extOr(canon, fallback){
+    const bank = state.external && state.external[canon];
+    if (Array.isArray(bank) && bank.length) return pick(bank, r);
+    return fallback();
+  }
+
   const T = {
-    "ad hominem": () => `Ignore ${pick(["Rana","Ilyas","Marta","Liang","Noura","Miguel","Avery","Fatima","Owen","Leila"],r)}'s ${pick({news:"report",science:"paper",politics:"proposal","everyday life":"advice",ads:"campaign",tech:"benchmark",sports:"strategy",health:"trial"}[d]? [ {news:"report",science:"paper",politics:"proposal","everyday life":"advice",ads:"campaign",tech:"benchmark",sports:"strategy",health:"trial"}[d] ] : ["claim"], r)}; they once ${pick(["made a typo in a tweet","missed a deadline once","accepted a small grant","changed jobs frequently","forgot to cite a blog"],r)}, so their argument is worthless.`,
+    "ad hominem": () => `Ignore ${pick(["Rana","Ilyas","Marta","Liang","Noura","Miguel","Avery","Fatima","Owen","Leila"],r)}'s ${thing()}; they once ${pick(["made a typo in a tweet","missed a deadline once","accepted a small grant","changed jobs frequently","forgot to cite a blog"],r)}, so their argument is worthless.`,
     "straw man": () => `People who question the new ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} secretly want ${pick(["abolish all traffic laws","let companies police themselves","make transit illegal","dump trash in the river","turn the city into a surveillance state","ban education"],r)}; that's why we must reject them outright.`,
     "false dilemma": () => `Either we adopt ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} immediately or ${pick(["the economy will crash","crime will skyrocket","our freedoms will vanish","public health will collapse","innovation will die"],r)}—there's no middle ground.`,
     "circular reasoning": () => `${cap(pick(["this integrity committee","our onboarding policy","the wellness program","the new evaluation metric"],r))} works because it's effective, and it's effective because it works.`,
@@ -125,124 +390,209 @@ function genClaim({difficulty, combos, forceFallacies, seed}){
     "Texas sharpshooter": () => `Out of ${50+Math.floor(Math.random()*50)} cases, ${3+Math.floor(Math.random()*5)} successes with ${pick(["a herbal extract","blue light glasses","alkaline water","cold showers"],r)} prove it works—ignore the rest.`,
     "appeal to ignorance": () => `No one has disproven ${pick(["microchips in passports track thoughts","aliens live among us","tax cuts pay for themselves"],r)}, therefore it's true.`,
     "special pleading": () => `${cap(pick(["our startup","this pilot program","the national initiative","the elite academy"],r))} shouldn't be judged by ordinary evidence—it's a visionary exception.`,
+    "appeal to popularity": () => `${pick(["Everyone knows","All my friends say","Millions believe"],r)} that ${pick(["this diet works","crypto will double","the app is the safest"],r)}, so it must be right.`,
+    "appeal to tradition": () => `${pick(["We've always", "Traditionally we"],r)} done it this way, therefore it's correct.`,
+    "appeal to novelty": () => `The new ${pick(["framework","policy","gadget"],r)} is better because it's new.`,
+    "appeal to nature": () => `${pick(["Herbal","Natural","Organic"],r)} means it's safe and effective.`,
+    "middle ground": () => `One side says ${pick(["always","never"],r)}, the other says the opposite; the truth must be exactly between them.`,
+    "moving the goalposts": () => `Even though you met the criteria, it's not enough; we require additional proof now.`,
+    "false equivalence": () => `${pick(["forgetting a badge","embezzlement"],r)} are both rule violations, so they're basically the same.`,
+    "sunk cost": () => `We've invested so much already that we must continue this failing project.`,
+    "anecdotal": () => `My cousin tried it once and it worked, so the science is wrong.`,
+    "burden of proof": () => `You can't prove I'm wrong, therefore I'm right.`
   };
 
-  const parts = targets.map(f => T[f]());
-  let claim = parts.join(" " + pick(["Moreover, ","And anyway, ","Besides, "], r));
-  if (difficulty==="hard") claim += Math.random()<0.4 ? " Everyone knows this." : "";
-  else if (difficulty==="medium") claim += Math.random()<0.25 ? " It's just common sense." : "";
-
+  const parts = targets.map(f => {
+    const bank = state.external && state.external[f];
+    if (Array.isArray(bank) && bank.length) return pick(bank, r);
+    return T[f]();
+  });
+  let claim = parts.join(" Moreover, ");
   const correct = [...new Set(targets)];
   const distractors = FALLACIES.filter(f=>!correct.includes(f)).sort(()=>Math.random()-0.5).slice(0, 6-correct.length);
   const options = [...correct, ...distractors].sort(()=>Math.random()-0.5);
   const correctLetters = options.map((o,i)=>({o,i})).filter(x=>correct.includes(x.o)).map(x=>String.fromCharCode(65+x.i));
-  return {domain:d, claim, options, correct, correctLetters};
+  const claimHtml = addClueHighlights(claim, correct);
+  return {domain:d, claim, claimHtml, options, correct, correctLetters};
 }
 
-function explain(f){
-  const e = {
-    "ad hominem":"Attacks the person instead of their argument.",
-    "straw man":"Misrepresents an opponent's view to make it easier to attack.",
-    "false dilemma":"Forces a choice between only two options.",
-    "circular reasoning":"Uses the conclusion as a premise.",
-    "slippery slope":"Claims a small step will trigger extreme consequences without support.",
-    "hasty generalization":"Generalizes from too few cases.",
-    "appeal to authority":"Uses status as proof.",
-    "appeal to emotion":"Uses feelings instead of reasons.",
-    "post hoc":"Assumes sequence implies causation.",
-    "correlation/causation":"Confuses correlation with causation.",
-    "composition/division":"Improperly moves properties between part and whole.",
-    "no true Scotsman":"Redefines a group to dodge counterexamples.",
-    "begging the question":"Restates the conclusion as a premise.",
-    "equivocation":"Shifts a term's meaning mid-argument.",
-    "gambler’s fallacy":"Assumes randomness evens out in the short run.",
-    "bandwagon":"Claims truth from popularity.",
-    "red herring":"Irrelevant distraction from the issue.",
-    "loaded question":"Smuggles a disputed assumption into the question.",
-    "genetic fallacy":"Judges a claim by its origin.",
-    "tu quoque":"Rejects an argument due to hypocrisy.",
-    "Texas sharpshooter":"Cherry-picks matching data and ignores the rest.",
-    "appeal to ignorance":"Treats lack of disproof as proof.",
-    "special pleading":"Invents an exception to avoid standards of evidence.",
-  };
-  return e[f]||"";
-}
-
+/* ===== App ===== */
 let q=null, chosen=new Set();
+let submitted=false;
 
 function renderQuestion(force){
+  submitted=false;
   const hardest = Object.entries(state.mistakes).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k])=>k);
   const seed = (state.seed + state.played*1013 + (force?37:0))>>>0;
-  q = genClaim({difficulty:state.difficulty, combos:state.combos, forceFallacies: (state.played>0 && state.played%5===0)? hardest: (force||[]), seed});
+  q = genClaim({combos:state.combos, forceFallacies: (state.played>0 && state.played%5===0)? hardest: (force||[]), seed});
   chosen.clear();
+
   $("#domainLabel").textContent = "Domain: " + q.domain;
   $("#claim").textContent = q.claim;
-  const opts = $("#options"); opts.innerHTML="";
-  q.options.forEach((opt,i)=>{
-    const el = document.createElement("button");
-    el.className = "opt";
-    el.dataset.letter = String.fromCharCode(65+i);
-    el.innerHTML = `<strong class="mono" style="width:20px;display:inline-block">${el.dataset.letter}.</strong> <span>${opt}</span>`;
-    el.onclick = ()=>{
-      if (!$("#result").classList.contains("hidden")) return;
-      const L = el.dataset.letter;
-      if (chosen.has(L)){ chosen.delete(L); el.classList.remove("active"); }
-      else { chosen.add(L); el.classList.add("active"); }
-    };
-    opts.appendChild(el);
-  });
-  $("#result").classList.add("hidden");
-  $("#actions").classList.remove("hidden");
-  $("#correctLetters").textContent="";
-  $("#explain").innerHTML="";
+  $("#clueLegend").style.display = "none";
+  $("#result").style.display = "none";
+  $("#correctLetters").textContent = "";
+  $("#interpreted").textContent = "";
+  $("#mcActions").style.display = "flex";
+
+  if(state.mode==="mc"){
+    $("#mcPanel").style.display = "block";
+    $("#freePanel").style.display = "none";
+    const cont = $("#options"); cont.innerHTML="";
+    q.options.forEach((name,i)=>{
+      const el = document.createElement("div");
+      el.className = "opt"; el.tabIndex = 0; el.dataset.letter = String.fromCharCode(65+i);
+      el.innerHTML = `
+        <div class="label mono">${el.dataset.letter}.</div>
+        <div style="flex:1 1 auto">
+          <div class="opt-label" style="font-weight:700">${name}</div>
+          <div class="meta" id="m-${i}">${DEFINITIONS[name]||""}</div>
+        </div>
+        <button class="btn" data-target="m-${i}" aria-label="Show definition" title="Show definition" style="padding:6px 8px">i</button>`;
+      function toggle(){ if(submitted) return; const L=el.dataset.letter; if(chosen.has(L)){ chosen.delete(L); el.classList.remove("active"); } else { chosen.add(L); el.classList.add("active"); } }
+      el.addEventListener("click", (e)=>{ if(e.target&&e.target.dataset&&e.target.dataset.target) return; toggle(); });
+      el.addEventListener("keydown", (e)=>{ if(e.key===" "||e.key==="Enter"){ e.preventDefault(); toggle(); } });
+      cont.appendChild(el);
+    });
+    document.querySelectorAll('[data-target^="m-"]').forEach(btn=>btn.addEventListener("click",(e)=>{ e.stopPropagation(); const id=btn.dataset.target; document.getElementById(id).classList.toggle("show"); }));
+    // Pick hint
+    const need = q.correct.length;
+    $("#pickHint").textContent = `Pick exactly ${need} ${need===1?'option':'options'}.`;
+  } else {
+    $("#mcPanel").style.display = "none";
+    $("#freePanel").style.display = "block";
+    $("#freeInput").value = "";
+    $("#freeInput").focus();
+  }
 }
 
-function submit(){
-  if (!q) return;
-  $("#actions").classList.add("hidden");
-  $("#result").classList.remove("hidden");
-  const options = [...document.querySelectorAll(".opt")];
+function submitMC(){
+  if(!q || submitted) return;
+  if (chosen.size===0){ alert("Pick at least one option."); return; }
+  submitted=true;
+  const opts = [...document.querySelectorAll(".opt")];
   const picked = [...chosen].map(L => q.options[L.charCodeAt(0)-65]);
-  const correctSet = new Set(q.correct);
-  let ok = true;
-  options.forEach((el,i)=>{
+  let ok = (chosen.size === q.correctLetters.length);
+  opts.forEach((el,i)=>{
     const L = el.dataset.letter;
     const isCorrect = q.correctLetters.includes(L);
     if (isCorrect) el.classList.add("correct");
-    if (chosen.has(L) && !isCorrect) { el.classList.add("wrong"); ok = false; }
-    if (chosen.size !== q.correctLetters.length) ok = false;
+    if (chosen.has(L) && !isCorrect){ el.classList.add("wrong"); ok=false; }
   });
+  finalize(ok, picked);
+}
+
+function submitFree(){
+  if(!q || submitted) return;
+  const val = $("#freeInput").value.trim();
+  if (!val){ alert("Type your answer first."); return; }
+  submitted=true;
+  const best = resolveCanonical(val);
+  const ok = !!best && q.correct.includes(best.canon);
+  $("#interpreted").textContent = best ? `You answered: ${val} → interpreted as “${best.canon}” (${best.via})` : `Couldn’t interpret “${val}”.`;
+  finalize(ok, [val]);
+}
+
+function finalize(ok, picked){
+  $("#result").style.display = "flex";
   if (ok){ state.score++; state.streak++; }
-  else { state.streak = 0;
-    const missed = q.correct.filter(f => !picked.includes(f));
-    const wrongs = picked.filter(f => !q.correct.includes(f));
+  else {
+    state.streak = 0;
+    const missed = q.correct.filter(f => !picked.some(p=>typeof p==="string" && resolveCanonical(p)?.canon===f));
+    const wrongs = picked.filter(p => !q.correct.some(f=>typeof p==="string" && resolveCanonical(p)?.canon===f));
     [...missed, ...wrongs].forEach(f => state.mistakes[f] = (state.mistakes[f]||0)+1);
+    state.missed.push({ domain:q.domain, claim:q.claim, claimHtml:q.claimHtml||null, options:q.options, correct:q.correct, correctLetters:q.correctLetters });
+    if (state.missed.length>100) state.missed.shift();
   }
   state.played++;
-  $("#score").textContent = state.score;
-  $("#streak").textContent = state.streak;
-  $("#played").textContent = state.played;
-  renderWeak();
-  $("#correctLetters").textContent = `Correct: ${q.correctLetters.join(", ")} — ${q.correct.join(" + ")}`;
-  const ul = $("#explain");
-  q.correct.forEach(f=>{
-    const li = document.createElement("li"); li.textContent = `${f}: ${explain(f)}`; ul.appendChild(li);
-  });
+  $("#score").textContent = state.score; $("#streak").textContent = state.streak; $("#played").textContent = state.played;
+  $("#correctLetters").textContent = `Correct — ${q.correct.join(" + ")}`;
+  $("#claim").innerHTML = q.claimHtml; $("#clueLegend").style.display = "block";
   save();
 }
 
-function renderWeak(){
-  const entries = Object.entries(state.mistakes).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  $("#weak").textContent = entries.length ? entries.map(([k,v])=>`${k}:${v}`).join("  ") : "—";
+function next(){ renderQuestion(); }
+
+/* Review missed */
+function renderExistingQuestion(item){
+  q = item; chosen.clear(); submitted=false;
+  $("#domainLabel").textContent = "Domain: " + q.domain + " (Review)";
+  $("#claim").textContent = q.claim;
+  $("#clueLegend").style.display = "none";
+  $("#result").style.display = "none";
+  $("#correctLetters").textContent = "";
+  $("#interpreted").textContent = "";
+
+  if(state.mode==="mc"){
+    $("#mcPanel").style.display = "block"; $("#freePanel").style.display = "none"; $("#mcActions").style.display="flex";
+    const cont = $("#options"); cont.innerHTML="";
+    q.options.forEach((name,i)=>{
+      const el = document.createElement("div"); el.className = "opt"; el.tabIndex=0; el.dataset.letter=String.fromCharCode(65+i);
+      el.innerHTML = `<div class="label mono">${el.dataset.letter}.</div><div style="flex:1 1 auto"><div class="opt-label" style="font-weight:700">${name}</div><div class="meta" id="rm-${i}">${DEFINITIONS[name]||""}</div></div><button class="btn" data-target="rm-${i}" style="padding:6px 8px">i</button>`;
+      function toggle(){ if(submitted) return; const L=el.dataset.letter; if(chosen.has(L)){ chosen.delete(L); el.classList.remove("active"); } else { chosen.add(L); el.classList.add("active"); } }
+      el.addEventListener("click",(e)=>{ if(e.target&&e.target.dataset&&e.target.dataset.target) return; toggle(); });
+      el.addEventListener("keydown",(e)=>{ if(e.key===" "||e.key==="Enter"){ e.preventDefault(); toggle(); } });
+      cont.appendChild(el);
+    });
+    document.querySelectorAll('[data-target^="rm-"]').forEach(btn=>btn.addEventListener("click",(e)=>{ e.stopPropagation(); const id=btn.dataset.target; document.getElementById(id).classList.toggle("show"); }));
+    $("#pickHint").textContent = `Pick exactly ${q.correct.length} ${q.correct.length===1?'option':'options'}.`;
+  } else {
+    $("#mcPanel").style.display = "none"; $("#freePanel").style.display = "block"; $("#mcActions").style.display="none"; $("#freeInput").value=""; $("#freeInput").focus();
+  }
 }
 
-$("#submit").onclick = submit;
-$("#skip").onclick = ()=>renderQuestion();
-$("#next").onclick = ()=>renderQuestion();
-$("#reset").onclick = ()=>{ state.score=0; state.streak=0; state.played=0; state.mistakes={}; save(); location.reload(); };
-$("#difficulty").onchange = (e)=>{ state.difficulty = e.target.value; save(); };
-$("#combos").onchange = (e)=>{ state.combos = e.target.checked; save(); };
+/* Glossary */
+function openGlossary(){ $("#glossaryModal").classList.add("open"); $("#gsearch").focus(); drawGlossary(); }
+function closeGlossary(){ $("#glossaryModal").classList.remove("open"); }
+function drawGlossary(){
+  const root = $("#glist"); root.innerHTML=""; const f = ($("#gsearch").value||"").toLowerCase();
+  Object.keys(DEFINITIONS).sort().forEach(name=>{
+    const text = DEFINITIONS[name];
+    if (f && !(name.toLowerCase().includes(f) || text.toLowerCase().includes(f))) return;
+    const div = document.createElement("div"); div.className="g-item";
+    div.innerHTML = `<b>${name}</b><div style="color:var(--muted);font-size:14px">${text}</div>`;
+    root.appendChild(div);
+  });
+}
 
+/* Events */
+$("#mode").onchange = (e)=>{ state.mode = e.target.value; save(); next(); };
+$("#combos").onchange = e=>{ state.combos = e.target.checked; save(); };
+$("#submitMC").onclick = submitMC;
+$("#skip").onclick = ()=>renderQuestion(true);
+$("#freeSubmit").onclick = submitFree;
+$("#freeSkip").onclick = ()=>renderQuestion(true);
+$("#next").onclick = next;
+$("#reset").onclick = ()=>{ state.score=0; state.streak=0; state.played=0; state.mistakes={}; state.missed=[]; state.seed = (state.seed + Math.floor(Math.random()*1e6))>>>0; save(); next(); };
+$("#glossaryBtn").onclick = openGlossary; $("#glClose").onclick = closeGlossary; $("#gsearch").addEventListener("input", drawGlossary);
+$("#dataBtn").onclick = setDataUrl;
+// submit on Enter inside free input
+document.addEventListener("keydown",(e)=>{
+  if (e.key==="Enter" && document.activeElement===document.getElementById("freeInput") && state.mode==="free"){
+    e.preventDefault(); submitFree();
+  }
+});
+// Keyboard shortcuts — disabled while typing in inputs/contenteditable
+window.addEventListener("keydown",(e)=>{
+  const tag = (e.target && e.target.tagName) ? e.target.tagName.toUpperCase() : "";
+  const typing = tag==="INPUT" || tag==="TEXTAREA" || (e.target && e.target.isContentEditable);
+  if (typing) return;
+  if(e.key==="Escape") closeGlossary();
+  const num = parseInt(e.key,10);
+  if(state.mode==="mc" && num>=1 && num<=6){
+    const el = document.querySelectorAll(".opt")[num-1]; if(el) el.click();
+  } else if (e.key==="Enter"){
+    if (!submitted){
+      state.mode==="mc" ? submitMC() : submitFree();
+    } else {
+      next();
+    }
+  } else if (e.key.toLowerCase()==="n"){
+    next();
+  }
+});
+
+/* Init */
 renderQuestion();
 </script>
 </body>
