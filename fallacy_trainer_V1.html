@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fallacy Trainer — No-Build</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#f6f6f6;margin:0}
+  .wrap{max-width:900px;margin:24px auto;padding:16px}
+  .card{background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:16px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .btn{padding:10px 14px;border-radius:12px;border:1px solid #ccc;background:#fff;cursor:pointer}
+  .btn.primary{background:#111;color:#fff;border-color:#111}
+  .opt{display:flex;gap:8px;align-items:flex-start;text-align:left;border:1px solid #ddd;border-radius:12px;padding:10px;cursor:pointer}
+  .opt.active{background:#eef3ff;border-color:#5b7cff}
+  .opt.correct{background:#e8fbef;border-color:#1e9e55}
+  .opt.wrong.active{background:#ffecec;border-color:#ff6b6b}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .muted{color:#666;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .stat{background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.08);padding:12px;text-align:center}
+  .mt{margin-top:16px}
+  .hidden{display:none}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between;">
+    <h2>Logical Fallacy Trainer (no-build)</h2>
+    <div class="row">
+      <label>Difficulty 
+        <select id="difficulty" class="btn">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </label>
+      <label class="btn"><input type="checkbox" id="combos" checked> Allow combos</label>
+      <button id="reset" class="btn">Reset stats</button>
+    </div>
+  </div>
+
+  <div id="card" class="card mt">
+    <div class="muted" id="domainLabel">Domain:</div>
+    <p id="claim" style="font-size:18px;line-height:1.5;margin-top:8px"></p>
+    <div id="options" class="grid mt"></div>
+    <div class="row mt" id="actions">
+      <button id="submit" class="btn primary">Submit</button>
+      <button id="skip" class="btn">Skip</button>
+    </div>
+    <div id="result" class="mt hidden">
+      <div class="row" style="justify-content:space-between;">
+        <strong>Result</strong>
+        <span id="correctLetters" class="mono"></span>
+      </div>
+      <ul id="explain" style="margin-top:8px"></ul>
+      <button id="next" class="btn primary mt">Next</button>
+    </div>
+  </div>
+
+  <div class="grid mt">
+    <div class="stat"><div class="muted">Score</div><div id="score" style="font-size:22px;font-weight:700">0</div></div>
+    <div class="stat"><div class="muted">Streak</div><div id="streak" style="font-size:22px;font-weight:700">0</div></div>
+    <div class="stat"><div class="muted">Played</div><div id="played" style="font-size:22px;font-weight:700">0</div></div>
+    <div class="stat"><div class="muted">Weak spots (misses)</div><div id="weak" class="mono">—</div></div>
+  </div>
+
+  <p class="muted mt">Every 5 questions, the generator biases toward your top two weak fallacies.</p>
+</div>
+
+<script>
+const FALLACIES = ["ad hominem","straw man","false dilemma","circular reasoning","slippery slope","hasty generalization","appeal to authority","appeal to emotion","post hoc","correlation/causation","composition/division","no true Scotsman","begging the question","equivocation","gambler’s fallacy","bandwagon","red herring","loaded question","genetic fallacy","tu quoque","Texas sharpshooter","appeal to ignorance","special pleading"];
+const DOMAINS = ["news","science","politics","everyday life","ads","tech","sports","health"];
+const storeKey = "fallacy_trainer_state_nobuild_v1";
+
+let state = {
+  difficulty:"medium", combos:true, score:0, streak:0, played:0, mistakes:{}, seed:Math.floor(Math.random()*1e9),
+};
+try{ const saved = JSON.parse(localStorage.getItem(storeKey)); if (saved) state = {...state, ...saved}; } catch{}
+
+const $ = sel => document.querySelector(sel);
+$("#difficulty").value = state.difficulty;
+$("#combos").checked = state.combos;
+$("#score").textContent = state.score;
+$("#streak").textContent = state.streak;
+$("#played").textContent = state.played;
+renderWeak();
+
+function save(){ localStorage.setItem(storeKey, JSON.stringify(state)); }
+
+function rng(seed){ let t=seed>>>0; return ()=>{ t+=0x6D2B79F5; let r=Math.imul(t^(t>>>15),1|t); r^=r+Math.imul(r^(r>>>7),61|r); return ((r^(r>>>14))>>>0)/4294967296; };}
+function pick(arr,r){ return arr[Math.floor(r()*arr.length)]; }
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function genClaim({difficulty, combos, forceFallacies, seed}){
+  const r = rng(seed);
+  const d = pick(DOMAINS, r);
+  let targets = (forceFallacies && forceFallacies.length) ? [...forceFallacies] : [pick(FALLACIES, r)];
+  if (combos && difficulty!=="easy" && Math.random()<0.32 && (!forceFallacies || forceFallacies.length<2)) {
+    let other = pick(FALLACIES.filter(f=>f!==targets[0]), r); targets.push(other);
+  }
+  if (forceFallacies && forceFallacies.length===2) targets = [...forceFallacies];
+
+  const T = {
+    "ad hominem": () => `Ignore ${pick(["Rana","Ilyas","Marta","Liang","Noura","Miguel","Avery","Fatima","Owen","Leila"],r)}'s ${pick({news:"report",science:"paper",politics:"proposal","everyday life":"advice",ads:"campaign",tech:"benchmark",sports:"strategy",health:"trial"}[d]? [ {news:"report",science:"paper",politics:"proposal","everyday life":"advice",ads:"campaign",tech:"benchmark",sports:"strategy",health:"trial"}[d] ] : ["claim"], r)}; they once ${pick(["made a typo in a tweet","missed a deadline once","accepted a small grant","changed jobs frequently","forgot to cite a blog"],r)}, so their argument is worthless.`,
+    "straw man": () => `People who question the new ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} secretly want ${pick(["abolish all traffic laws","let companies police themselves","make transit illegal","dump trash in the river","turn the city into a surveillance state","ban education"],r)}; that's why we must reject them outright.`,
+    "false dilemma": () => `Either we adopt ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} immediately or ${pick(["the economy will crash","crime will skyrocket","our freedoms will vanish","public health will collapse","innovation will die"],r)}—there's no middle ground.`,
+    "circular reasoning": () => `${cap(pick(["this integrity committee","our onboarding policy","the wellness program","the new evaluation metric"],r))} works because it's effective, and it's effective because it works.`,
+    "slippery slope": () => `If we allow ${pick(["1-hour deadline extensions","optional homework","trial periods for scooters","anonymous feedback forms"],r)} today, tomorrow ${pick(["standards will evaporate","budgets will triple","streets will be lawless","no one will ever work again"],r)}—so we must stop it now.`,
+    "hasty generalization": () => `I met ${Math.random()<0.5?"one":"two"} ${pick(["app users","cyclists","investors","students","drivers","remote workers","gamers","tourists"],r)} who ${pick(["ignored the instructions","missed a payment","got lost","broke the rules"],r)}; therefore all ${pick(["app users","cyclists","investors","students","drivers","remote workers","gamers","tourists"],r)} are like that.`,
+    "appeal to authority": () => `${pick(["a billionaire influencer","a retired actor","a viral TikTok doctor","a famous podcaster"],r)} said ${pick(["coffee cures insomnia","AI will remove all jobs by winter","the tax will raise revenue without costs","running barefoot eliminates injuries"],r)}, so it must be true.`,
+    "appeal to emotion": () => `Think of ${pick(["the children","families living paycheck to paycheck","small shop owners","frontline nurses"],r)}! If you cared, you'd support ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} without asking questions.`,
+    "post hoc": () => `After ${pick(["the mayor's announcement","last month's heatwave","the app's redesign","a celebrity endorsement"],r)} happened, ${pick(["crime","sales","complaints","downtime","bike accidents"],r)} increased; so ${pick(["the mayor's announcement","last month's heatwave","the app's redesign","a celebrity endorsement"],r)} caused it.`,
+    "correlation/causation": () => `${cap(pick(["ice cream sales","screen time","bald eagle sightings","podcast downloads"],r))} correlates with ${pick(["drowning incidents","teen anxiety","stock prices","forest fires"],r)}; therefore ${pick(["drowning incidents","teen anxiety","stock prices","forest fires"],r)} causes ${pick(["ice cream sales","screen time","bald eagle sightings","podcast downloads"],r)}.`,
+    "composition/division": () => `Each ${pick(["component","committee member","ingredient","player"],r)} is ${pick(["cheap","healthy","honest","fast"],r)}, so the whole ${pick(["computer","team","meal","league"],r)} must be ${pick(["cheap","healthy","honest","fast"],r)}.`,
+    "no true Scotsman": () => `No real ${pick(["patriot","scientist","athlete","environmentalist","entrepreneur"],r)} would ever ${pick(["pay taxes","miss practice","recycle","take a vacation"],r)}; anyone who does isn't a true ${pick(["patriot","scientist","athlete","environmentalist","entrepreneur"],r)}.`,
+    "begging the question": () => `${cap(pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r))} is justified because it's the right thing to do.`,
+    "equivocation": () => `Since "theory" means well-supported explanation and also speculation, we can conclude science is just guesses.`,
+    "gambler’s fallacy": () => `${cap(pick(["coin toss came up heads","lottery numbers were high","the team lost"],r))} has happened ${3+Math.floor(Math.random()*3)} times in a row; it's definitely due to flip now.`,
+    "bandwagon": () => `${1+Math.floor(Math.random()*10)} million people already support ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)}—join the winning side.`,
+    "red herring": () => `Yes, ${pick(["the budget overrun","the missed safety inspection","the failed A/B test"],r)} is concerning, but have you seen ${pick(["this new branding color","last year's holiday party","a nearby city's mascot"],r)}? Let's talk about that instead.`,
+    "loaded question": () => `Have you stopped ${pick(["massaging performance metrics","hiding conflicts of interest","silencing critics"],r)} while promoting ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)}?`,
+    "genetic fallacy": () => `${cap(pick(["this investment thesis","the nutrition plan","the hiring rubric","the vaccine schedule"],r))} originated on ${pick(["a subreddit","a startup newsletter","a TV talk show","a marketing blog"],r)}, so it's unreliable by default.`,
+    "tu quoque": () => `You did ${pick(["took a subsidy","worked remotely","flew business class","skipped the vote"],r)} last year, so your argument for ${pick(["the citywide congestion fee","AI auditing standards","a universal transit pass","banning single-use plastics","expanding red-light cameras","remote-first schooling","data localization rules","a sugar-sweetened beverage tax"],r)} is invalid.`,
+    "Texas sharpshooter": () => `Out of ${50+Math.floor(Math.random()*50)} cases, ${3+Math.floor(Math.random()*5)} successes with ${pick(["a herbal extract","blue light glasses","alkaline water","cold showers"],r)} prove it works—ignore the rest.`,
+    "appeal to ignorance": () => `No one has disproven ${pick(["microchips in passports track thoughts","aliens live among us","tax cuts pay for themselves"],r)}, therefore it's true.`,
+    "special pleading": () => `${cap(pick(["our startup","this pilot program","the national initiative","the elite academy"],r))} shouldn't be judged by ordinary evidence—it's a visionary exception.`,
+  };
+
+  const parts = targets.map(f => T[f]());
+  let claim = parts.join(" " + pick(["Moreover, ","And anyway, ","Besides, "], r));
+  if (difficulty==="hard") claim += Math.random()<0.4 ? " Everyone knows this." : "";
+  else if (difficulty==="medium") claim += Math.random()<0.25 ? " It's just common sense." : "";
+
+  const correct = [...new Set(targets)];
+  const distractors = FALLACIES.filter(f=>!correct.includes(f)).sort(()=>Math.random()-0.5).slice(0, 6-correct.length);
+  const options = [...correct, ...distractors].sort(()=>Math.random()-0.5);
+  const correctLetters = options.map((o,i)=>({o,i})).filter(x=>correct.includes(x.o)).map(x=>String.fromCharCode(65+x.i));
+  return {domain:d, claim, options, correct, correctLetters};
+}
+
+function explain(f){
+  const e = {
+    "ad hominem":"Attacks the person instead of their argument.",
+    "straw man":"Misrepresents an opponent's view to make it easier to attack.",
+    "false dilemma":"Forces a choice between only two options.",
+    "circular reasoning":"Uses the conclusion as a premise.",
+    "slippery slope":"Claims a small step will trigger extreme consequences without support.",
+    "hasty generalization":"Generalizes from too few cases.",
+    "appeal to authority":"Uses status as proof.",
+    "appeal to emotion":"Uses feelings instead of reasons.",
+    "post hoc":"Assumes sequence implies causation.",
+    "correlation/causation":"Confuses correlation with causation.",
+    "composition/division":"Improperly moves properties between part and whole.",
+    "no true Scotsman":"Redefines a group to dodge counterexamples.",
+    "begging the question":"Restates the conclusion as a premise.",
+    "equivocation":"Shifts a term's meaning mid-argument.",
+    "gambler’s fallacy":"Assumes randomness evens out in the short run.",
+    "bandwagon":"Claims truth from popularity.",
+    "red herring":"Irrelevant distraction from the issue.",
+    "loaded question":"Smuggles a disputed assumption into the question.",
+    "genetic fallacy":"Judges a claim by its origin.",
+    "tu quoque":"Rejects an argument due to hypocrisy.",
+    "Texas sharpshooter":"Cherry-picks matching data and ignores the rest.",
+    "appeal to ignorance":"Treats lack of disproof as proof.",
+    "special pleading":"Invents an exception to avoid standards of evidence.",
+  };
+  return e[f]||"";
+}
+
+let q=null, chosen=new Set();
+
+function renderQuestion(force){
+  const hardest = Object.entries(state.mistakes).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k])=>k);
+  const seed = (state.seed + state.played*1013 + (force?37:0))>>>0;
+  q = genClaim({difficulty:state.difficulty, combos:state.combos, forceFallacies: (state.played>0 && state.played%5===0)? hardest: (force||[]), seed});
+  chosen.clear();
+  $("#domainLabel").textContent = "Domain: " + q.domain;
+  $("#claim").textContent = q.claim;
+  const opts = $("#options"); opts.innerHTML="";
+  q.options.forEach((opt,i)=>{
+    const el = document.createElement("button");
+    el.className = "opt";
+    el.dataset.letter = String.fromCharCode(65+i);
+    el.innerHTML = `<strong class="mono" style="width:20px;display:inline-block">${el.dataset.letter}.</strong> <span>${opt}</span>`;
+    el.onclick = ()=>{
+      if (!$("#result").classList.contains("hidden")) return;
+      const L = el.dataset.letter;
+      if (chosen.has(L)){ chosen.delete(L); el.classList.remove("active"); }
+      else { chosen.add(L); el.classList.add("active"); }
+    };
+    opts.appendChild(el);
+  });
+  $("#result").classList.add("hidden");
+  $("#actions").classList.remove("hidden");
+  $("#correctLetters").textContent="";
+  $("#explain").innerHTML="";
+}
+
+function submit(){
+  if (!q) return;
+  $("#actions").classList.add("hidden");
+  $("#result").classList.remove("hidden");
+  const options = [...document.querySelectorAll(".opt")];
+  const picked = [...chosen].map(L => q.options[L.charCodeAt(0)-65]);
+  const correctSet = new Set(q.correct);
+  let ok = true;
+  options.forEach((el,i)=>{
+    const L = el.dataset.letter;
+    const isCorrect = q.correctLetters.includes(L);
+    if (isCorrect) el.classList.add("correct");
+    if (chosen.has(L) && !isCorrect) { el.classList.add("wrong"); ok = false; }
+    if (chosen.size !== q.correctLetters.length) ok = false;
+  });
+  if (ok){ state.score++; state.streak++; }
+  else { state.streak = 0;
+    const missed = q.correct.filter(f => !picked.includes(f));
+    const wrongs = picked.filter(f => !q.correct.includes(f));
+    [...missed, ...wrongs].forEach(f => state.mistakes[f] = (state.mistakes[f]||0)+1);
+  }
+  state.played++;
+  $("#score").textContent = state.score;
+  $("#streak").textContent = state.streak;
+  $("#played").textContent = state.played;
+  renderWeak();
+  $("#correctLetters").textContent = `Correct: ${q.correctLetters.join(", ")} — ${q.correct.join(" + ")}`;
+  const ul = $("#explain");
+  q.correct.forEach(f=>{
+    const li = document.createElement("li"); li.textContent = `${f}: ${explain(f)}`; ul.appendChild(li);
+  });
+  save();
+}
+
+function renderWeak(){
+  const entries = Object.entries(state.mistakes).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  $("#weak").textContent = entries.length ? entries.map(([k,v])=>`${k}:${v}`).join("  ") : "—";
+}
+
+$("#submit").onclick = submit;
+$("#skip").onclick = ()=>renderQuestion();
+$("#next").onclick = ()=>renderQuestion();
+$("#reset").onclick = ()=>{ state.score=0; state.streak=0; state.played=0; state.mistakes={}; save(); location.reload(); };
+$("#difficulty").onchange = (e)=>{ state.difficulty = e.target.value; save(); };
+$("#combos").onchange = (e)=>{ state.combos = e.target.checked; save(); };
+
+renderQuestion();
+</script>
+</body>
+</html>
